@@ -6,3 +6,8 @@ numpy==1.19.5
 pandas==1.2.0
 face_recognition==1.3.0
 opencv-python==4.5.1.48
+dlib
+mtcnn
+urllib
+annoy
+
