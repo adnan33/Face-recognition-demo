@@ -1,11 +1,11 @@
 from keras_facenet import FaceNet
+import os,glob,cv2
 import pandas as pd
 import numpy as np
 import face_recognition
 from annoy import AnnoyIndex
-import os,glob,cv2,time,dlib,mtcnn
-
-
+import time
+import urllib.request
 
 # defining the embedder 
 embedder = FaceNet()
@@ -52,21 +52,7 @@ def detect_faces(frame):
     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     return face_recognition.face_locations(frame, number_of_times_to_upsample=0, model="hog")
 
-def detect_faces_dlib(frame):
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    rects = detector(gray, 1)
-    rects_conv = []
-    for rect in rects:
-        # Print the location of each face in this image
-        rects_conv.append([rect.top(),rect.right(), rect.bottom(), rect.left()])
-    return rects_conv
-def detect_faces_mtcnn(frame):
-    rects = detector2.detect_faces(frame)
-    rects_conv = []
-    for rect in rects:
-        # Print the location of each face in this image
-        rects_conv.append([rect['box'][1],rect['box'][0]+rect['box'][2],rect['box'][1]+rect['box'][3],rect['box'][0]])
-    return rects_conv
+
 
 def recognize_faces(frame,face_locations):
     for i in range(len(face_locations)):
@@ -82,15 +68,16 @@ def recognize_faces(frame,face_locations):
             p_name = "Unknown"
         draw_rect_on_face(frame, p_name, face_locations[i])
     return frame
+#change this url with the url on your phone ipcam app
+URL = "http://192.168.31.195:8080/video"
+video_capture = cv2.VideoCapture(URL)
+fourcc = cv2.VideoWriter_fourcc(*'XVID')
 
-detector = dlib.get_frontal_face_detector()
-detector2 = mtcnn.MTCNN()
-video_capture = cv2.VideoCapture(0) 
-while True:
+while (video_capture.isOpened()): 
     ret,frame = video_capture.read()
-    print(frame.shape)
+    frame = cv2.resize(frame,(300,300))
     f_time_start = time.time()
-    face_locations = detect_faces_mtcnn(frame)
+    face_locations = detect_faces(frame)
     f_time_end = time.time()
     if len(face_locations) > 0:
         frame = recognize_faces(frame,face_locations)
@@ -100,6 +87,6 @@ while True:
     key = cv2.waitKey(1) & 0xFF
     if key == ord("q"):
         break
+
+out.release()
 cv2.destroyAllWindows()
-    
-    
