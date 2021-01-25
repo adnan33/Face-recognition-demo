@@ -15,7 +15,6 @@ embedder = FaceNet()
 #loading the saved face name and features
 df_filename = "Face_feature_database.csv"
 idx_filename = "face_db.ann"
-idx_backup_filename = "face_db_backup.ann"
 idx_shape = 512
 face_width = 150
 face_height = 150
@@ -31,16 +30,18 @@ def load_facedb():
     face_df = pd.read_csv(df_filename)
     face_names = face_df["Name"].values
     face_feats = face_df["Face_features"].to_numpy()
-    #face_feats_np = [np.fromstring(x[1:-1],sep=',') for x in face_feats]
+    face_feats_np = [np.fromstring(x[1:-1],sep=',') for x in face_feats]
     #loading the annoy face database
     face_db = AnnoyIndex(idx_shape,"dot")
-    face_db.load(idx_filename)
+    for i,face in enumerate(face_feats_np):
+    	face_db.add_item(i,face)
+    face_db.build(10)
   
 
 def insert_new_face(image,name):
     global face_df
     global face_db
-    
+    face_db.unload()
     if (name not in face_names):
         face_locations = detect_faces(image)
         face = image[face_locations[0][0]:face_locations[0][2], face_locations[0][3]:face_locations[0][1]]
@@ -51,13 +52,16 @@ def insert_new_face(image,name):
         encoded_face_db = dict(zip(face_names,face_feats_np))
         encoded_face_db[name] = face_feat
         face_feats_np.append(face_feat)
-        face_db.unload()
-        del face_db
+        #print(os.access(idx_filename, os.W_OK),os.access(idx_filename, os.R_OK))
         face_db = AnnoyIndex(idx_shape,"dot")
+        #print(os.access(idx_filename, os.W_OK),os.access(idx_filename, os.R_OK))
         for i,face in enumerate(face_feats_np):
             face_db.add_item(i,face)
-        face_db.build(2)
-        face_db.save(idx_filename,prefault=True)
+        
+        #print(os.access(idx_filename, os.W_OK),os.access(idx_filename, os.R_OK))
+        #face_db.on_disk_build(idx_filename)
+        face_db.build(10)
+        
         face_df = pd.DataFrame()
         face_df["Name"] = encoded_face_db.keys()
         face_df["Face_features"] = encoded_face_db.values()
@@ -139,7 +143,7 @@ def add_face():
     name = st.text_input("Name")
     uploaded_file = st.file_uploader("Image", type=['jpg','png'])
     print(uploaded_file)
-    if uploaded_file!= None and uploaded_file!=[] :
+    if uploaded_file!= None and uploaded_file!=[] and name!='' :
         print(name)
         up_image = uploaded_file.read()
         nparr = np.frombuffer(up_image, np.uint8)
@@ -166,3 +170,5 @@ if sidebar_option==app_options[0]:
     show_live_stream()
 elif sidebar_option==app_options[1]:
     show_db()
+elif sidebar_option==app_options[2]:
+    add_face()
