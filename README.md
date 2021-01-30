@@ -27,4 +27,4 @@ Then run the following command ``streamlit run st_demo.py``.
 ###### Authored by:
 
 Md.Adnan Taufique:neckbeard: \
-Machine Learning Engineer \
+Machine Learning Engineer 
