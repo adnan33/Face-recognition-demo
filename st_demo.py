@@ -13,29 +13,39 @@ import os,glob,cv2,time,dlib,mtcnn
 # defining the embedder 
 embedder = FaceNet()
 #loading the saved face name and features
-df_filename = "Face_feature_database.csv"
-idx_filename = "face_db.ann"
+df_filename = "./data/Face_feature_database.csv"
 idx_shape = 512
 face_width = 150
 face_height = 150
 THRES = 0.6
 FRAME_THICKNESS = 2
 FONT_THICKNESS = 1
-
+os.makedirs("./data/",exist_ok=True)
 def load_facedb():
     global face_df
     global face_feats
     global face_names
     global face_db
-    face_df = pd.read_csv(df_filename)
-    face_names = face_df["Name"].values
-    face_feats = face_df["Face_features"].to_numpy()
-    face_feats_np = [np.fromstring(x[1:-1],sep=',') for x in face_feats]
-    #loading the annoy face database
-    face_db = AnnoyIndex(idx_shape,"dot")
-    for i,face in enumerate(face_feats_np):
-    	face_db.add_item(i,face)
-    face_db.build(10)
+    global face_feats_np
+    try:
+        face_df = pd.read_csv(df_filename)
+        face_names = face_df["Name"].values
+        face_feats = face_df["Face_features"].to_numpy()
+        face_feats_np = [np.fromstring(x[1:-1],sep=',') for x in face_feats]
+        #loading the annoy face database
+        face_db = AnnoyIndex(idx_shape,"dot")
+        for i,face in enumerate(face_feats_np):
+    	    face_db.add_item(i,face)
+        face_db.build(10)
+    except (FileNotFoundError):
+        face_df = pd.DataFrame(columns=["Name,Face_features"])
+        face_names = []
+        face_feats = []
+        face_feats_np = []
+        #loading the annoy face database
+        face_db = AnnoyIndex(idx_shape,"dot")
+        face_db.build(10)
+    
   
 
 def insert_new_face(image,name):
@@ -52,16 +62,6 @@ def insert_new_face(image,name):
         encoded_face_db = dict(zip(face_names,face_feats_np))
         encoded_face_db[name] = face_feat
         face_feats_np.append(face_feat)
-        #print(os.access(idx_filename, os.W_OK),os.access(idx_filename, os.R_OK))
-        face_db = AnnoyIndex(idx_shape,"dot")
-        #print(os.access(idx_filename, os.W_OK),os.access(idx_filename, os.R_OK))
-        for i,face in enumerate(face_feats_np):
-            face_db.add_item(i,face)
-        
-        #print(os.access(idx_filename, os.W_OK),os.access(idx_filename, os.R_OK))
-        #face_db.on_disk_build(idx_filename)
-        face_db.build(10)
-        
         face_df = pd.DataFrame()
         face_df["Name"] = encoded_face_db.keys()
         face_df["Face_features"] = encoded_face_db.values()
@@ -70,6 +70,23 @@ def insert_new_face(image,name):
         del face_df
         del face_db
         load_facedb()
+def remove_face_from_db(name):
+    global face_df
+    global face_db
+    face_db.unload()
+    encoded_face_db = dict(zip(face_names,face_feats_np))
+    del encoded_face_db[name]
+    face_df = pd.DataFrame()
+    face_df["Name"] = encoded_face_db.keys()
+    face_df["Face_features"] = encoded_face_db.values()
+    face_df.to_csv(df_filename ,index = False)
+    
+    del face_df
+    del face_db
+    load_facedb()
+    
+    
+
 def draw_rect_on_face(frame, name, face_location):
     top_left = (face_location[3], face_location[0])
     bottom_right = (face_location[1], face_location[2])
@@ -110,6 +127,7 @@ def detect_faces_dlib(frame):
 
 
 def recognize_faces(frame,face_locations):
+    p_name = "Unknown"
     for i in range(len(face_locations)):
         #top,right,bottom,left = face_locations[i]
         face = frame[face_locations[i][0]:face_locations[i][2], face_locations[i][3]:face_locations[i][1]]
@@ -117,10 +135,11 @@ def recognize_faces(frame,face_locations):
         face = face.reshape(1,face_width,face_height,3)
         face_embedding = embedder.embeddings(face)
         sim = face_db.get_nns_by_vector(face_embedding[0],n=1,include_distances=True)
-        if sim[1][0]>THRES:
-            p_name = face_names[sim[0][0]]
-        else:
-            p_name = "Unknown"
+        
+        if(len(sim[1])>0):
+            if (sim[1][0]>THRES):
+                p_name = face_names[sim[0][0]]
+            
         draw_rect_on_face(frame, p_name, face_locations[i])
     return frame
 def show_db():
@@ -139,22 +158,30 @@ def show_live_stream():
             frame = recognize_faces(frame,face_locations)
         imbox.image(frame, channels = "BGR")
 def add_face():
+    add_flag = True
     st.subheader('Register New Person')
     name = st.text_input("Name")
     uploaded_file = st.file_uploader("Image", type=['jpg','png'])
-    print(uploaded_file)
-    if uploaded_file!= None and uploaded_file!=[] and name!='' :
-        print(name)
+    if (uploaded_file!= None and uploaded_file!=[] and name!='' and add_flag ==True) :
         up_image = uploaded_file.read()
         nparr = np.frombuffer(up_image, np.uint8)
         up_image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
         insert_new_face(up_image,name)
         del name
         del up_image
-        st.error("Face Added")
-        if st.button("Redirect To Known People"):
-            sidebar_option=app_options[1]
-    
+        add_flag = False
+        st.error("Entry Success!!!")
+def delete_face():
+    del_flag = True
+    st.subheader('Remove Person from Database')
+    name = st.text_input("Name")
+    if (name!='' and (name in face_names) and del_flag ==True) :
+        remove_face_from_db(name)
+        del name
+        add_flag = False
+        st.error("Delete Success!!!")
+    elif(name!=''):
+        st.error("Person not Found!!!")
 
 st.title("Face Recognition demo")
 
@@ -172,3 +199,5 @@ elif sidebar_option==app_options[1]:
     show_db()
 elif sidebar_option==app_options[2]:
     add_face()
+elif sidebar_option==app_options[3]:
+    delete_face()
