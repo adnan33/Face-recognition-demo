@@ -14,7 +14,6 @@ Then run the following command ``streamlit run st_demo.py``.
 - [ ] Optimizing face detection for unusual poses(face alignment) :point_left:
 - [ ] Encrypting the database :point_left:
 - [ ] Liveness Detection :point_left:
-- [ ] Containerizing the service/demo with docker for deployment :point_left:
 
 ### Technologies used
 - Opencv
@@ -28,4 +27,6 @@ Then run the following command ``streamlit run st_demo.py``.
 ###### Authored by:
 
 Md.Adnan Taufique:neckbeard: \
-Machine Learning Engineer 
+Machine Learning Engineer\
+
+**I coded the whole thing in very short amount of time. so, the code is messy. Don't judge me, please** :stuck_out_tongue: 
